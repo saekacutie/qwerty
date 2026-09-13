@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>404 Not found</title>
+    <style>
+        /* Fixed layout enforcing rigid pixel dimensions to prevent auto-resizing */
+        body {
+            background-color: #ffffff;
+            color: #000000;
+            font-family: "Courier New", Courier, monospace;
+            margin: 0;
+            padding: 0;
+            width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .container {
+            width: 800px;
+            margin: 100px auto 0 auto;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 
+         * GLITCH & CORRUPTION ANIMATIONS
+         */
+        .glitch-text {
+            position: relative;
+            font-size: 22px;
+            font-weight: bold;
+            line-height: 1.5;
+            letter-spacing: 1px;
+            margin-bottom: 50px;
+            text-transform: uppercase;
+        }
+
+        .glitch-text::before, .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px; /* Fixed width */
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        .glitch-text::before {
+            left: 3px;
+            text-shadow: -2px 0 #ff003c;
+            animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+        }
+
+        .glitch-text::after {
+            left: -3px;
+            text-shadow: -2px 0 #00e5ff;
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+
+        .duration-display {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 60px;
+            padding: 20px;
+            border: 2px solid #000;
+            position: relative;
+            display: inline-block;
+            width: 400px; /* Fixed width */
+            background: #fff;
+        }
+
+        .duration-display.corrupted {
+            animation: shake 0.4s infinite;
+        }
+
+        /* 
+         * BUTTON STYLING
+         */
+        .btn-wrapper {
+            width: 800px;
+            text-align: center;
+        }
+
+        .action-btn {
+            background-color: #0056b3;
+            color: #ffffff;
+            border: none;
+            width: 300px; /* Fixed width */
+            height: 60px; /* Fixed height */
+            font-size: 18px;
+            font-weight: bold;
+            font-family: "Courier New", Courier, monospace;
+            cursor: pointer;
+            box-shadow: 6px 6px 0px #000000;
+            transition: all 0.1s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .action-btn:hover {
+            transform: translate(3px, 3px);
+            box-shadow: 3px 3px 0px #000000;
+            background-color: #004494;
+        }
+
+        .action-btn:active {
+            transform: translate(6px, 6px);
+            box-shadow: 0px 0px 0px #000000;
+        }
+
+        /* Background Scanline Overlay */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1000px;
+            height: 1000px;
+            pointer-events: none;
+            z-index: 1;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 4px,
+                rgba(0, 0, 0, 0.04) 4px,
+                rgba(0, 0, 0, 0.04) 8px
+            );
+        }
+
+        /* Glitch Keyframes */
+        @keyframes glitch-anim-1 {
+            0% { clip: rect(12px, 9999px, 24px, 0); }
+            20% { clip: rect(55px, 9999px, 78px, 0); }
+            40% { clip: rect(10px, 9999px, 33px, 0); }
+            60% { clip: rect(80px, 9999px, 95px, 0); }
+            80% { clip: rect(35px, 9999px, 55px, 0); }
+            100% { clip: rect(5px, 9999px, 20px, 0); }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(45px, 9999px, 60px, 0); }
+            20% { clip: rect(15px, 9999px, 30px, 0); }
+            40% { clip: rect(70px, 9999px, 90px, 0); }
+            60% { clip: rect(25px, 9999px, 40px, 0); }
+            80% { clip: rect(85px, 9999px, 100px, 0); }
+            100% { clip: rect(50px, 9999px, 75px, 0); }
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <!-- Main Message -->
+        <div class="glitch-text" data-text="LAB EXPIRATION">
+            LAB EXPIRATION AUTO DETECT FROM QWIKLABS
+        </div>
+
+        <!-- Duration Display -->
+        <div class="duration-display glitch-text" id="durationTimer" data-text="HOST DURATION: 05:00:00">
+            HOST DURATION: 05:00:00
+        </div>
+
+        <!-- Action Button -->
+        <div class="btn-wrapper">
+            <button class="action-btn" onclick="window.location.href='https://qkc404.github.io/saeka-gcp-panel'">
+                ACCESS PANEL
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Simulated Timer & Corruption Effect script
+        let hours = 4;
+        let minutes = 59;
+        let seconds = 59;
+        
+        const timerElement = document.getElementById('durationTimer');
+
+        setInterval(() => {
+            seconds--;
+            if (seconds < 0) {
+                seconds = 59;
+                minutes--;
+                if (minutes < 0) {
+                    minutes = 59;
+                    hours--;
+                }
+            }
+
+            const formatTime = (time) => time < 10 ? `0${time}` : time;
+            const timeString = `HOST DURATION: 0${hours}:${formatTime(minutes)}:${formatTime(seconds)}`;
+            
+            timerElement.innerHTML = timeString;
+            timerElement.setAttribute('data-text', timeString);
+
+            // Random aggressive corruption spike
+            if (Math.random() > 0.85) {
+                timerElement.classList.add('corrupted');
+                setTimeout(() => {
+                    timerElement.classList.remove('corrupted');
+                }, 200);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
