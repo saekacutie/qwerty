@@ -108,3 +108,29 @@ EOF
 echo ""
 echo "[+] Authoritative client outbound (pinning + ECH guaranteed): ${JSON_FILE}"
 [ -z "$CERT_SHA256_B64" ] && echo "[!] pinnedPeerCertificateChainSha256 is empty - fill it in once you have a live cert to probe, or the client will just skip pinning."
+
+# --- Raw-TCP masked transport: not in the share links above (no TLS, no
+# path - it's a direct listener, only reachable on GCE/GKE, never Cloud
+# Run). Add it to the client manually with these fields.
+if [ -n "$TCP_RAW_HOST" ]; then
+    TCP_RAW_JSON="./client-links/${HOST}-rawtcp-outbound.json"
+    cat > "$TCP_RAW_JSON" << EOF
+{
+  "_comment": "Raw TCP masked transport - point at the GCE/GKE host directly, NOT ${HOST}. No TLS applies here.",
+  "protocol": "${TCP_RAW_PROTOCOL:-vless}",
+  "settings": {
+    "vnext": [{
+      "address": "${TCP_RAW_HOST}",
+      "port": ${TCP_RAW_PORT:-20002},
+      "users": [{"id": "${USERID}", "encryption": "none"}]
+    }]
+  },
+  "streamSettings": {
+    "network": "tcp",
+    "security": "none",
+    "tcpSettings": {"header": {"type": "${TCP_RAW_MASK:-http}"}}
+  }
+}
+EOF
+    echo "[+] Raw-TCP client outbound (fill in address/port/protocol to match what you enabled in deploy.sh): ${TCP_RAW_JSON}"
+fi
