@@ -93,10 +93,11 @@ echo ""
 echo -e "  ${CYAN}==================================================${NC}"
 echo -e "  ${GREEN}                 DEPLOY TARGET${NC}"
 echo -e "  ${CYAN}==================================================${NC}"
-echo -e "  ${YELLOW}1) Cloud Run  - TCP only. mKCP CANNOT work here - Cloud Run drops${RESET}"
-echo -e "  ${YELLOW}                all UDP unconditionally, no exception, no config fixes it.${RESET}"
-echo -e "  ${YELLOW}2) GCE VM     - TCP+UDP via a firewall rule. mKCP works.${RESET}"
-echo -e "  ${YELLOW}3) GKE        - TCP+UDP via a LoadBalancer Service. mKCP works.${RESET}"
+echo -e "  ${YELLOW}1) Cloud Run  - TCP only, single port. Raw-TCP masked transport CANNOT${RESET}"
+echo -e "  ${YELLOW}                work here - Cloud Run allows exactly one exposed port per${RESET}"
+echo -e "  ${YELLOW}                revision, already spent on the HTTP path-routed protocols.${RESET}"
+echo -e "  ${YELLOW}2) GCE VM     - extra TCP port via a firewall rule. Raw-TCP works.${RESET}"
+echo -e "  ${YELLOW}3) GKE        - extra TCP port via a LoadBalancer Service. Raw-TCP works.${RESET}"
 read -r -p "$(echo -e "  ${CYAN}CHOICE [1-3] (Default 1): ${RESET}")" TARGET_CHOICE
 case "$TARGET_CHOICE" in
     2) DEPLOY_TARGET="gce";;
@@ -106,22 +107,20 @@ esac
 echo -e "  ${GREEN}DEPLOY TARGET: ${DEPLOY_TARGET}${RESET}"
 
 if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
-    KCP_ENABLED="false"
-    echo -e "  ${YELLOW}mKCP forced off for this target.${RESET}"
+    TCP_RAW_ENABLED="false"
+    echo -e "  ${YELLOW}raw-TCP forced off for this target.${RESET}"
 else
     echo ""
-    read -r -p "$(echo -e "  ${CYAN}ENABLE mKCP? [y/N]: ${RESET}")" KCP_YN
-    if [[ "$KCP_YN" =~ ^[Yy]$ ]]; then
-        KCP_ENABLED="true"
-        echo -e "  ${YELLOW}KCP header/mask type: none | srtp | utp | wechat-video | dtls | wireguard${RESET}"
-        read -r -p "$(echo -e "  ${CYAN}MASK [wechat-video]: ${RESET}")" KCP_MASK_IN
-        KCP_MASK=${KCP_MASK_IN:-wechat-video}
-        read -r -p "$(echo -e "  ${CYAN}UDP PORT BASE (uses base..base+3) [20000]: ${RESET}")" KCP_PORT_BASE_IN
-        KCP_PORT_BASE=${KCP_PORT_BASE_IN:-20000}
-        KCP_SEED=$(openssl rand -hex 12)
-        echo -e "  ${GREEN}KCP seed (save this - clients need it): ${KCP_SEED}${RESET}"
+    read -r -p "$(echo -e "  ${CYAN}ENABLE raw-TCP masked transport? [y/N]: ${RESET}")" TCP_RAW_YN
+    if [[ "$TCP_RAW_YN" =~ ^[Yy]$ ]]; then
+        TCP_RAW_ENABLED="true"
+        echo -e "  ${YELLOW}Raw TCP header/mask type: none | http (http disguises the connection as a plain HTTP request)${RESET}"
+        read -r -p "$(echo -e "  ${CYAN}MASK [http]: ${RESET}")" TCP_RAW_MASK_IN
+        TCP_RAW_MASK=${TCP_RAW_MASK_IN:-http}
+        read -r -p "$(echo -e "  ${CYAN}TCP PORT BASE (uses base..base+3) [20000]: ${RESET}")" TCP_RAW_PORT_BASE_IN
+        TCP_RAW_PORT_BASE=${TCP_RAW_PORT_BASE_IN:-20000}
     else
-        KCP_ENABLED="false"
+        TCP_RAW_ENABLED="false"
     fi
 fi
 
@@ -156,9 +155,9 @@ if [ $? -ne 0 ]; then
 fi
 
 # Common env vars for all three targets
-COMMON_ENV="PROXY_ENGINE=${PROXY_ENV},ADS_MODE=${ADS_MODE},KCP_ENABLED=${KCP_ENABLED}"
-if [ "$KCP_ENABLED" == "true" ]; then
-    COMMON_ENV="${COMMON_ENV},KCP_MASK=${KCP_MASK},KCP_SEED=${KCP_SEED},KCP_PORT_BASE=${KCP_PORT_BASE}"
+COMMON_ENV="PROXY_ENGINE=${PROXY_ENV},ADS_MODE=${ADS_MODE},TCP_RAW_ENABLED=${TCP_RAW_ENABLED}"
+if [ "$TCP_RAW_ENABLED" == "true" ]; then
+    COMMON_ENV="${COMMON_ENV},TCP_RAW_MASK=${TCP_RAW_MASK},TCP_RAW_PORT_BASE=${TCP_RAW_PORT_BASE}"
 fi
 
 if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
@@ -192,17 +191,17 @@ fi
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project="$PROJECT_ID" --format='value(status.url)' 2>/dev/null)
 CLEAN_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
-KCP_HOST=""
+TCP_RAW_HOST=""
 
 elif [ "$DEPLOY_TARGET" == "gce" ]; then
 
     read -r -p "$(echo -e "  ${CYAN}ZONE [${REGION}-a]: ${RESET}")" ZONE_IN
     ZONE=${ZONE_IN:-${REGION}-a}
 
-    loading "OPENING FIREWALL (tcp:8080${KCP_ENABLED:+, udp:$KCP_PORT_BASE-$((KCP_PORT_BASE+3))})"
+    loading "OPENING FIREWALL (tcp:8080${TCP_RAW_ENABLED:+, tcp:$TCP_RAW_PORT_BASE-$((TCP_RAW_PORT_BASE+3))})"
     FW_PORTS="tcp:8080"
-    if [ "$KCP_ENABLED" == "true" ]; then
-        FW_PORTS="${FW_PORTS},udp:${KCP_PORT_BASE}-$((KCP_PORT_BASE+3))"
+    if [ "$TCP_RAW_ENABLED" == "true" ]; then
+        FW_PORTS="${FW_PORTS},tcp:${TCP_RAW_PORT_BASE}-$((TCP_RAW_PORT_BASE+3))"
     fi
     gcloud compute firewall-rules create "${SERVICE_NAME}-fw" \
         --allow="$FW_PORTS" --target-tags="${SERVICE_NAME}" \
@@ -222,7 +221,7 @@ elif [ "$DEPLOY_TARGET" == "gce" ]; then
     fi
     DEPLOY_NOTE="GCE VM (e2-standard-2), TLS not terminated - put a Caddy/Traefik cert or an HTTPS LB in front if you need TLS"
     CLEAN_HOST=$(gcloud compute instances describe "${SERVICE_NAME}" --zone="$ZONE" --project="$PROJECT_ID" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-    KCP_HOST="$CLEAN_HOST"
+    TCP_RAW_HOST="$CLEAN_HOST"
 
 elif [ "$DEPLOY_TARGET" == "gke" ]; then
 
@@ -235,15 +234,15 @@ elif [ "$DEPLOY_TARGET" == "gke" ]; then
         || gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$GKE_LOC" --project "$PROJECT_ID" --quiet >> deploy.log 2>&1
 
     K8S_MANIFEST="/tmp/${SERVICE_NAME}-k8s.yaml"
-    KCP_PORT_LINES=""
-    if [ "$KCP_ENABLED" == "true" ]; then
+    TCP_RAW_PORT_LINES=""
+    if [ "$TCP_RAW_ENABLED" == "true" ]; then
         for i in 0 1 2 3; do
-            p=$((KCP_PORT_BASE + i))
-            KCP_PORT_LINES="${KCP_PORT_LINES}
-    - name: kcp-${p}
+            p=$((TCP_RAW_PORT_BASE + i))
+            TCP_RAW_PORT_LINES="${TCP_RAW_PORT_LINES}
+    - name: raw-${p}
       port: ${p}
       targetPort: ${p}
-      protocol: UDP"
+      protocol: TCP"
         done
     fi
 
@@ -265,8 +264,8 @@ spec:
         image: gcr.io/${PROJECT_ID}/${SERVICE_NAME}
         ports:
         - containerPort: 8080
-$(if [ "$KCP_ENABLED" == "true" ]; then for i in 0 1 2 3; do echo "        - containerPort: $((KCP_PORT_BASE + i))
-          protocol: UDP"; done; fi)
+$(if [ "$TCP_RAW_ENABLED" == "true" ]; then for i in 0 1 2 3; do echo "        - containerPort: $((TCP_RAW_PORT_BASE + i))
+          protocol: TCP"; done; fi)
         env:
 $(echo "$COMMON_ENV" | tr ',' '\n' | sed -E 's/^([^=]+)=(.*)$/        - name: \1\n          value: "\2"/')
 ---
@@ -281,7 +280,7 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
-      protocol: TCP${KCP_PORT_LINES}
+      protocol: TCP${TCP_RAW_PORT_LINES}
 YAML
 
     loading "APPLYING K8S MANIFEST"
@@ -298,7 +297,7 @@ YAML
         sleep 10
     done
     DEPLOY_NOTE="GKE LoadBalancer Service, TLS not terminated - front with a GKE Ingress + managed cert if you need TLS"
-    KCP_HOST="$CLEAN_HOST"
+    TCP_RAW_HOST="$CLEAN_HOST"
 fi
 
 echo ""
@@ -316,9 +315,9 @@ echo -e "  ${CYAN}ADS MODE   ${GREEN}${ADS_MODE}${RESET}"
 if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
     echo -e "  ${CYAN}CPU / RAM  ${GREEN}${CPU} vCPU / ${RAM}${RESET}"
 fi
-if [ "$KCP_ENABLED" == "true" ]; then
-    echo -e "  ${CYAN}mKCP       ${GREEN}enabled, mask=${KCP_MASK}, host=${KCP_HOST}, ports ${KCP_PORT_BASE}-$((KCP_PORT_BASE+3))/udp, seed=${KCP_SEED}${RESET}"
-    echo -e "  ${CYAN}mKCP tags  ${GREEN}trojan-kcp vmess-kcp vless-kcp ss-kcp (matched to port base + index 0-3)${RESET}"
+if [ "$TCP_RAW_ENABLED" == "true" ]; then
+    echo -e "  ${CYAN}raw-TCP    ${GREEN}enabled, mask=${TCP_RAW_MASK}, host=${TCP_RAW_HOST}, ports ${TCP_RAW_PORT_BASE}-$((TCP_RAW_PORT_BASE+3))/tcp${RESET}"
+    echo -e "  ${CYAN}raw-TCP tags ${GREEN}trojan-raw vmess-raw vless-raw ss-raw (matched to port base + index 0-3)${RESET}"
 fi
 echo ""
 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
@@ -332,10 +331,10 @@ echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━
 if [ "$PROXY_ENV" == "openresty" ] || [ "$PROXY_ENV" == "haproxy" ]; then
     echo -e "  ${YELLOW}gRPC paths above will return 501 on ${ENGINE} - see engine note.${RESET}"
 fi
-if [ "$KCP_ENABLED" == "true" ]; then
-    echo -e "  ${YELLOW}mKCP has no path - it's a raw UDP listener, separate from the routes${RESET}"
-    echo -e "  ${YELLOW}above. Point mKCP clients at ${KCP_HOST}:<port> directly, not through${RESET}"
-    echo -e "  ${YELLOW}${ENGINE} or the raw host URL.${RESET}"
+if [ "$TCP_RAW_ENABLED" == "true" ]; then
+    echo -e "  ${YELLOW}raw-TCP has no path - it's a direct TCP listener, separate from the${RESET}"
+    echo -e "  ${YELLOW}routes above. Point raw-TCP clients at ${TCP_RAW_HOST}:<port> directly,${RESET}"
+    echo -e "  ${YELLOW}not through ${ENGINE} or the raw host URL.${RESET}"
 fi
 echo ""
 
