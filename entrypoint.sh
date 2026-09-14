@@ -18,7 +18,7 @@ echo "[+] Starting Xray Core..."
 xray run -config /etc/xray/config.json &
 XRAY_PID=$!
 
-ENGINE="${PROXY_ENGINE:-envoy}"
+ENGINE="${PROXY_ENGINE:-haproxy}"
 echo "[+] Starting Reverse Proxy Engine: $ENGINE"
 
 start_engine() {
@@ -38,10 +38,13 @@ start_engine() {
         traefik)
             traefik --configFile=/etc/traefik/traefik.yml &
             ;;
+        h2o)
+            h2o -c /etc/h2o/h2o.conf &
+            ;;
         *)
-            echo "[-] Unknown PROXY_ENGINE '$ENGINE', falling back to envoy"
-            ENGINE="envoy"
-            envoy -c /etc/envoy/envoy.yaml &
+            echo "[-] Unknown PROXY_ENGINE '$ENGINE', falling back to haproxy"
+            ENGINE="haproxy"
+            haproxy -f /etc/haproxy/haproxy.cfg -db &
             ;;
     esac
     ENGINE_PID=$!

@@ -7,14 +7,6 @@ static_resources:
         port_value: 8080
     filter_chains:
     - filters:
-      # Anti-DDoS layer 1 (network/connection level): caps total concurrent
-      # connections through this listener. Built-in Envoy filter, no plugin.
-      - name: envoy.filters.network.connection_limit
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.connection_limit.v3.ConnectionLimit
-          stat_prefix: conn_limit
-          max_connections: 20000
-          delay: 0s
       - name: envoy.filters.network.http_connection_manager
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
@@ -23,30 +15,6 @@ static_resources:
           stream_idle_timeout: 0s  # Disables the 5-minute global idle timeout
           upgrade_configs:
           - upgrade_type: websocket
-          http_filters:
-          # Anti-DDoS layer 2 (request level): per-listener token bucket.
-          # Sustained abuse past the bucket just gets 429'd automatically -
-          # no separate monitoring system needed for the common case.
-          - name: envoy.filters.http.local_ratelimit
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
-              stat_prefix: http_local_rate_limiter
-              token_bucket:
-                max_tokens: 300
-                tokens_per_fill: 300
-                fill_interval: 10s
-              filter_enabled:
-                runtime_key: local_rate_limit_enabled
-                default_value: { numerator: 100, denominator: HUNDRED }
-              filter_enforced:
-                runtime_key: local_rate_limit_enforced
-                default_value: { numerator: 100, denominator: HUNDRED }
-              response_headers_to_add:
-              - append_action: OVERWRITE_IF_EXISTS_OR_ADD
-                header: { key: x-local-rate-limit, value: "true" }
-          - name: envoy.filters.http.router
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
           route_config:
             name: local_route
             virtual_hosts:
@@ -96,6 +64,11 @@ static_resources:
                 route: { cluster: xray_10011, timeout: 0s, idle_timeout: 0s }
               - match: { prefix: "/ss-saeka" }
                 route: { cluster: xray_10009, timeout: 0s, idle_timeout: 0s }
+
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
   # HTTP/1.1, WebSocket, HTTPUpgrade, and XHTTP Clusters
