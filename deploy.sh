@@ -38,28 +38,31 @@ echo ""
 echo -e "  ${CYAN}==================================================${NC}"
 echo -e "  ${GREEN}             CHOOSE PROXY ENGINE${NC}"
 echo -e "  ${CYAN}==================================================${NC}"
-echo -e "  ${YELLOW}1) HAProxy    - full protocol support incl. gRPC (recommended)${RESET}"
-echo -e "  ${YELLOW}2) Envoy      - full protocol support incl. gRPC${RESET}"
-echo -e "  ${YELLOW}3) Caddy      - full protocol support incl. gRPC${RESET}"
-echo -e "  ${YELLOW}4) H2O        - full protocol support incl. gRPC (less tested)${RESET}"
-echo -e "  ${YELLOW}5) Traefik    - full protocol support incl. gRPC (less tested)${RESET}"
-echo -e "  ${YELLOW}6) OpenResty  - WS/HTTPUpgrade/XHTTP only, NO gRPC (nginx limitation)${RESET}"
+echo -e "  ${YELLOW}1) Envoy      - full protocol support incl. gRPC (recommended)${RESET}"
+echo -e "  ${YELLOW}2) Caddy      - full protocol support incl. gRPC${RESET}"
+echo -e "  ${YELLOW}3) Traefik    - full protocol support incl. gRPC (less tested)${RESET}"
+echo -e "  ${YELLOW}4) HAProxy    - WS/HTTPUpgrade/XHTTP only, NO gRPC${RESET}"
+echo -e "  ${YELLOW}5) OpenResty  - WS/HTTPUpgrade/XHTTP only, NO gRPC${RESET}"
 echo ""
-read -r -p "$(echo -e "  ${CYAN}SELECT PROXY ENGINE [1-6] (Default 1): ${RESET}")" ENGINE_CHOICE
+read -r -p "$(echo -e "  ${CYAN}SELECT PROXY ENGINE [1-5] (Default 1): ${RESET}")" ENGINE_CHOICE
 
 case "$ENGINE_CHOICE" in
-    2) ENGINE="Envoy"; PROXY_ENV="envoy";;
-    3) ENGINE="Caddy"; PROXY_ENV="caddy";;
-    4) ENGINE="H2O"; PROXY_ENV="h2o";;
-    5) ENGINE="Traefik"; PROXY_ENV="traefik";;
-    6) ENGINE="OpenResty"; PROXY_ENV="openresty";;
-    *) ENGINE="HAProxy"; PROXY_ENV="haproxy";;
+    2) ENGINE="Caddy"; PROXY_ENV="caddy";;
+    3) ENGINE="Traefik"; PROXY_ENV="traefik";;
+    4) ENGINE="HAProxy"; PROXY_ENV="haproxy";;
+    5) ENGINE="OpenResty"; PROXY_ENV="openresty";;
+    *) ENGINE="Envoy"; PROXY_ENV="envoy";;
 esac
 echo -e "  ${GREEN}SELECTED PROXY ENGINE: ${ENGINE}${RESET}"
 if [ "$PROXY_ENV" == "openresty" ]; then
     echo -e "  ${YELLOW}Note: gRPC endpoints will return 501 on this engine - nginx cannot${RESET}"
     echo -e "  ${YELLOW}multiplex HTTP/1.1 and cleartext HTTP/2 on one port. Pick another${RESET}"
     echo -e "  ${YELLOW}engine if you need the gRPC transport.${RESET}"
+fi
+if [ "$PROXY_ENV" == "haproxy" ]; then
+    echo -e "  ${YELLOW}Note: gRPC endpoints will return 501 on this engine - HAProxy has no${RESET}"
+    echo -e "  ${YELLOW}ALPN-less h1/h2c auto-detection on a cleartext bind. Pick Envoy,${RESET}"
+    echo -e "  ${YELLOW}Caddy, or Traefik if you need the gRPC transport.${RESET}"
 fi
 echo ""
 
@@ -163,8 +166,8 @@ echo -e "  ${GREEN}  VMess${RESET}        | WS: /vmess-saeka   | HU: /vmess-saek
 echo -e "  ${GREEN}  TROJAN${RESET}       | WS: /saeka-tojirp  | HU: /saeka-tojirp-hu  | XH: /saeka-tojirp-xh  | gRPC: /saeka-tojirp-grpc"
 echo -e "  ${GREEN}  Shadowsocks${RESET}  | WS: /ss-saeka      | HU: /ss-saeka-hu      | XH: /ss-saeka-xh      | gRPC: /ss-saeka-grpc"
 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
-if [ "$PROXY_ENV" == "openresty" ]; then
-    echo -e "  ${YELLOW}gRPC paths above will return 501 on OpenResty - see engine note.${RESET}"
+if [ "$PROXY_ENV" == "openresty" ] || [ "$PROXY_ENV" == "haproxy" ]; then
+    echo -e "  ${YELLOW}gRPC paths above will return 501 on ${ENGINE} - see engine note.${RESET}"
 fi
 echo ""
 

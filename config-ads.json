@@ -418,6 +418,13 @@
           "tcpNoDelay": true,
           "tcpKeepAliveInterval": 15
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     },
     {
@@ -443,6 +450,13 @@
           "tcpNoDelay": true,
           "tcpKeepAliveInterval": 15
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     },
     {
@@ -469,6 +483,13 @@
           "tcpNoDelay": true,
           "tcpKeepAliveInterval": 15
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     },
     {
@@ -494,6 +515,13 @@
           "tcpNoDelay": true,
           "tcpKeepAliveInterval": 15
         }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
       }
     }
   ],
