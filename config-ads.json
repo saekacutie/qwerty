@@ -624,7 +624,7 @@
       "port": 20000,
       "listen": "0.0.0.0",
       "protocol": "trojan",
-      "tag": "trojan-kcp",
+      "tag": "trojan-raw",
       "settings": {
         "clients": [
           {
@@ -633,20 +633,12 @@
         ]
       },
       "streamSettings": {
-        "network": "kcp",
-        "kcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
-          "mtu": 1350,
-          "tti": 50,
-          "uplinkCapacity": 100,
-          "downlinkCapacity": 100,
-          "congestion": false,
-          "readBufferSize": 2,
-          "writeBufferSize": 2,
+        "network": "tcp",
+        "tcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
           "header": {
-            "type": "wechat-video"
-          },
-          "seed": "saeka-kcp-seed-change-me"
+            "type": "http"
+          }
         }
       },
       "sniffing": {
@@ -661,7 +653,7 @@
       "port": 20001,
       "listen": "0.0.0.0",
       "protocol": "vmess",
-      "tag": "vmess-kcp",
+      "tag": "vmess-raw",
       "settings": {
         "clients": [
           {
@@ -671,20 +663,12 @@
         ]
       },
       "streamSettings": {
-        "network": "kcp",
-        "kcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
-          "mtu": 1350,
-          "tti": 50,
-          "uplinkCapacity": 100,
-          "downlinkCapacity": 100,
-          "congestion": false,
-          "readBufferSize": 2,
-          "writeBufferSize": 2,
+        "network": "tcp",
+        "tcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
           "header": {
-            "type": "wechat-video"
-          },
-          "seed": "saeka-kcp-seed-change-me"
+            "type": "http"
+          }
         }
       },
       "sniffing": {
@@ -699,7 +683,7 @@
       "port": 20002,
       "listen": "0.0.0.0",
       "protocol": "vless",
-      "tag": "vless-kcp",
+      "tag": "vless-raw",
       "settings": {
         "clients": [
           {
@@ -709,20 +693,12 @@
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "kcp",
-        "kcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
-          "mtu": 1350,
-          "tti": 50,
-          "uplinkCapacity": 100,
-          "downlinkCapacity": 100,
-          "congestion": false,
-          "readBufferSize": 2,
-          "writeBufferSize": 2,
+        "network": "tcp",
+        "tcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
           "header": {
-            "type": "wechat-video"
-          },
-          "seed": "saeka-kcp-seed-change-me"
+            "type": "http"
+          }
         }
       },
       "sniffing": {
@@ -737,7 +713,7 @@
       "port": 20003,
       "listen": "0.0.0.0",
       "protocol": "shadowsocks",
-      "tag": "ss-kcp",
+      "tag": "ss-raw",
       "settings": {
         "clients": [
           {
@@ -747,20 +723,12 @@
         ]
       },
       "streamSettings": {
-        "network": "kcp",
-        "kcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
-          "mtu": 1350,
-          "tti": 50,
-          "uplinkCapacity": 100,
-          "downlinkCapacity": 100,
-          "congestion": false,
-          "readBufferSize": 2,
-          "writeBufferSize": 2,
+        "network": "tcp",
+        "tcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
           "header": {
-            "type": "wechat-video"
-          },
-          "seed": "saeka-kcp-seed-change-me"
+            "type": "http"
+          }
         }
       },
       "sniffing": {
@@ -804,10 +772,10 @@
           "ss-hu",
           "ss-xh",
           "ss-grpc",
-          "trojan-kcp",
-          "vmess-kcp",
-          "vless-kcp",
-          "ss-kcp"
+          "trojan-raw",
+          "vmess-raw",
+          "vless-raw",
+          "ss-raw"
         ],
         "outboundTag": "direct"
       }
