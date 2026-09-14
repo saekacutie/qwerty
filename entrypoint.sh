@@ -14,46 +14,51 @@ else
 fi
 echo "[+] Ads mode: ${ADS_MODE}"
 
-# --- mKCP: UDP transport, never routed through the HTTP proxy engines in
-# this image (Envoy/HAProxy/Caddy/Traefik all route by HTTP path, and KCP
-# has no path - it needs its own direct UDP listener). Off by default
-# because Cloud Run drops all UDP unconditionally; turning this on there
-# just means Xray binds ports nothing can ever reach, quietly. Only set
-# KCP_ENABLED=true when the container is actually reachable over UDP
-# (GCE VM with a UDP firewall rule, or a GKE LoadBalancer Service that
-# exposes UDP ports) - see deploy.sh, which sets these for you.
-KCP_ENABLED="${KCP_ENABLED:-false}"
-if [ "$KCP_ENABLED" == "true" ]; then
-    KCP_MASK="${KCP_MASK:-wechat-video}"
-    case "$KCP_MASK" in
-        none|srtp|utp|wechat-video|dtls|wireguard) ;;
+# --- Raw TCP masked transport: never routed through the HTTP proxy
+# engines in this image (Envoy/HAProxy/Caddy/Traefik all route by HTTP
+# path, and a raw TCP stream has no path - it needs its own direct
+# listener). Off by default because Cloud Run only exposes one port per
+# revision, already spent on the HTTP-routed protocols; turning this on
+# there just means Xray binds a port nothing can ever reach, quietly.
+# Only set TCP_RAW_ENABLED=true when the container has an extra port
+# actually opened for it (GCE VM firewall rule, or a GKE LoadBalancer
+# Service with an extra port) - see deploy.sh, which sets these for you.
+# --- Raw TCP listener: bypasses the HTTP path-routing proxy layer
+# (Envoy/HAProxy/Caddy/Traefik all route by path; a raw TCP stream has no
+# path). Needs its own direct port, which means Cloud Run can't expose it
+# at all (one port per revision, already spent on the HTTP-routed
+# protocols) - only turn this on for GCE/GKE, where deploy.sh opens the
+# extra TCP port range for you.
+TCP_RAW_ENABLED="${TCP_RAW_ENABLED:-false}"
+if [ "$TCP_RAW_ENABLED" == "true" ]; then
+    TCP_RAW_MASK="${TCP_RAW_MASK:-http}"
+    case "$TCP_RAW_MASK" in
+        none|http) ;;
         *)
-            echo "[-] Unknown KCP_MASK '$KCP_MASK', falling back to wechat-video"
-            KCP_MASK="wechat-video"
+            echo "[-] Unknown TCP_RAW_MASK '$TCP_RAW_MASK', falling back to http"
+            TCP_RAW_MASK="http"
             ;;
     esac
-    KCP_SEED="${KCP_SEED:-$(openssl rand -hex 12)}"
-    KCP_PORT_BASE="${KCP_PORT_BASE:-20000}"
-    echo "[+] mKCP enabled: mask=${KCP_MASK} ports=${KCP_PORT_BASE}-$((KCP_PORT_BASE+3)) seed=${KCP_SEED}"
+    TCP_RAW_PORT_BASE="${TCP_RAW_PORT_BASE:-20000}"
+    echo "[+] Raw TCP enabled: mask=${TCP_RAW_MASK} ports=${TCP_RAW_PORT_BASE}-$((TCP_RAW_PORT_BASE+3))"
     TMP_CFG=$(mktemp)
-    jq --arg mask "$KCP_MASK" --arg seed "$KCP_SEED" --argjson base "$KCP_PORT_BASE" '
+    jq --arg mask "$TCP_RAW_MASK" --argjson base "$TCP_RAW_PORT_BASE" '
       .inbounds |= map(
-        if (.streamSettings.network? == "kcp") then
-          .streamSettings.kcpSettings.header.type = $mask
-          | .streamSettings.kcpSettings.seed = $seed
-          | .port = ($base + (["trojan-kcp","vmess-kcp","vless-kcp","ss-kcp"] | index(.tag)))
+        if (.streamSettings.network? == "tcp" and (.tag | endswith("-raw"))) then
+          .streamSettings.tcpSettings.header.type = $mask
+          | .port = ($base + (["trojan-raw","vmess-raw","vless-raw","ss-raw"] | index(.tag)))
         else . end
       )
     ' /etc/xray/config.json > "$TMP_CFG" && mv "$TMP_CFG" /etc/xray/config.json
 else
     TMP_CFG=$(mktemp)
-    jq '.inbounds |= map(select(.streamSettings.network? != "kcp"))
+    jq '.inbounds |= map(select((.streamSettings.network? == "tcp" and (.tag | endswith("-raw"))) | not))
         | .routing.rules |= map(
             if .outboundTag == "direct" and (.inboundTag? != null) then
-              .inboundTag |= map(select(. != "trojan-kcp" and . != "vmess-kcp" and . != "vless-kcp" and . != "ss-kcp"))
+              .inboundTag |= map(select(. != "trojan-raw" and . != "vmess-raw" and . != "vless-raw" and . != "ss-raw"))
             else . end
           )' /etc/xray/config.json > "$TMP_CFG" && mv "$TMP_CFG" /etc/xray/config.json
-    echo "[+] mKCP disabled (KCP_ENABLED=false) - kcp inbounds stripped from config"
+    echo "[+] Raw TCP disabled (TCP_RAW_ENABLED=false) - raw tcp inbounds stripped from config"
 fi
 
 echo "[+] Starting Xray Core..."
