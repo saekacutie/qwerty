@@ -90,31 +90,7 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/saeka-tojirp-xh",
-          "mode": "auto",
-          "extra": {
-            "headers": {},
-            "xPaddingBytes": "100-1000",
-            "noSSEHeader": false,
-            "scMaxEachPostBytes": 1000000,
-            "scMinPostsIntervalMs": 30,
-            "scMaxConcurrentPosts": 100,
-            "xmux": {
-              "maxConcurrency": "16-32",
-              "maxConnections": 0,
-              "cMaxReuseTimes": 0,
-              "cMaxLifetimeMs": 0
-            },
-            "downloadSettings": {
-              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
-              "address": "",
-              "port": 443,
-              "network": "tcp",
-              "security": "tls",
-              "tlsSettings": {
-                "serverName": ""
-              }
-            }
-          }
+          "mode": "auto"
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -242,31 +218,7 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vmess-saeka-xh",
-          "mode": "auto",
-          "extra": {
-            "headers": {},
-            "xPaddingBytes": "100-1000",
-            "noSSEHeader": false,
-            "scMaxEachPostBytes": 1000000,
-            "scMinPostsIntervalMs": 30,
-            "scMaxConcurrentPosts": 100,
-            "xmux": {
-              "maxConcurrency": "16-32",
-              "maxConnections": 0,
-              "cMaxReuseTimes": 0,
-              "cMaxLifetimeMs": 0
-            },
-            "downloadSettings": {
-              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
-              "address": "",
-              "port": 443,
-              "network": "tcp",
-              "security": "tls",
-              "tlsSettings": {
-                "serverName": ""
-              }
-            }
-          }
+          "mode": "auto"
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -395,31 +347,7 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vless-saeka-xh",
-          "mode": "auto",
-          "extra": {
-            "headers": {},
-            "xPaddingBytes": "100-1000",
-            "noSSEHeader": false,
-            "scMaxEachPostBytes": 1000000,
-            "scMinPostsIntervalMs": 30,
-            "scMaxConcurrentPosts": 100,
-            "xmux": {
-              "maxConcurrency": "16-32",
-              "maxConnections": 0,
-              "cMaxReuseTimes": 0,
-              "cMaxLifetimeMs": 0
-            },
-            "downloadSettings": {
-              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
-              "address": "",
-              "port": 443,
-              "network": "tcp",
-              "security": "tls",
-              "tlsSettings": {
-                "serverName": ""
-              }
-            }
-          }
+          "mode": "auto"
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -548,31 +476,7 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/ss-saeka-xh",
-          "mode": "auto",
-          "extra": {
-            "headers": {},
-            "xPaddingBytes": "100-1000",
-            "noSSEHeader": false,
-            "scMaxEachPostBytes": 1000000,
-            "scMinPostsIntervalMs": 30,
-            "scMaxConcurrentPosts": 100,
-            "xmux": {
-              "maxConcurrency": "16-32",
-              "maxConnections": 0,
-              "cMaxReuseTimes": 0,
-              "cMaxLifetimeMs": 0
-            },
-            "downloadSettings": {
-              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
-              "address": "",
-              "port": 443,
-              "network": "tcp",
-              "security": "tls",
-              "tlsSettings": {
-                "serverName": ""
-              }
-            }
-          }
+          "mode": "auto"
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -619,125 +523,6 @@
           "tls"
         ]
       }
-    },
-    {
-      "port": 20000,
-      "listen": "0.0.0.0",
-      "protocol": "trojan",
-      "tag": "trojan-raw",
-      "settings": {
-        "clients": [
-          {
-            "password": "saeka"
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
-          "header": {
-            "type": "http"
-          }
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
-      }
-    },
-    {
-      "port": 20001,
-      "listen": "0.0.0.0",
-      "protocol": "vmess",
-      "tag": "vmess-raw",
-      "settings": {
-        "clients": [
-          {
-            "id": "saeka",
-            "alterId": 0
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
-          "header": {
-            "type": "http"
-          }
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
-      }
-    },
-    {
-      "port": 20002,
-      "listen": "0.0.0.0",
-      "protocol": "vless",
-      "tag": "vless-raw",
-      "settings": {
-        "clients": [
-          {
-            "id": "saeka"
-          }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
-          "header": {
-            "type": "http"
-          }
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
-      }
-    },
-    {
-      "port": 20003,
-      "listen": "0.0.0.0",
-      "protocol": "shadowsocks",
-      "tag": "ss-raw",
-      "settings": {
-        "clients": [
-          {
-            "password": "saeka",
-            "method": "aes-256-gcm"
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": {
-          "_comment": "listen 0.0.0.0 on purpose: this is a raw TCP listener, bypassed entirely by the HTTP path-routing proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs its own direct port. entrypoint.sh strips this block unless TCP_RAW_ENABLED=true, and rewrites header.type/port from TCP_RAW_MASK/TCP_RAW_PORT_BASE. Cloud Run cannot expose this at all (one port per revision, already used for the HTTP-routed protocols) - GCE/GKE only.",
-          "header": {
-            "type": "http"
-          }
-        }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": [
-          "http",
-          "tls"
-        ]
-      }
     }
   ],
   "outbounds": [
@@ -771,11 +556,7 @@
           "ss-ws",
           "ss-hu",
           "ss-xh",
-          "ss-grpc",
-          "trojan-raw",
-          "vmess-raw",
-          "vless-raw",
-          "ss-raw"
+          "ss-grpc"
         ],
         "outboundTag": "direct"
       }
