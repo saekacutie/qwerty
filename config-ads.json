@@ -90,7 +90,31 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/saeka-tojirp-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "extra": {
+            "headers": {},
+            "xPaddingBytes": "100-1000",
+            "noSSEHeader": false,
+            "scMaxEachPostBytes": 1000000,
+            "scMinPostsIntervalMs": 30,
+            "scMaxConcurrentPosts": 100,
+            "xmux": {
+              "maxConcurrency": "16-32",
+              "maxConnections": 0,
+              "cMaxReuseTimes": 0,
+              "cMaxLifetimeMs": 0
+            },
+            "downloadSettings": {
+              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
+              "address": "",
+              "port": 443,
+              "network": "tcp",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": ""
+              }
+            }
+          }
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -218,7 +242,31 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vmess-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "extra": {
+            "headers": {},
+            "xPaddingBytes": "100-1000",
+            "noSSEHeader": false,
+            "scMaxEachPostBytes": 1000000,
+            "scMinPostsIntervalMs": 30,
+            "scMaxConcurrentPosts": 100,
+            "xmux": {
+              "maxConcurrency": "16-32",
+              "maxConnections": 0,
+              "cMaxReuseTimes": 0,
+              "cMaxLifetimeMs": 0
+            },
+            "downloadSettings": {
+              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
+              "address": "",
+              "port": 443,
+              "network": "tcp",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": ""
+              }
+            }
+          }
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -347,7 +395,31 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vless-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "extra": {
+            "headers": {},
+            "xPaddingBytes": "100-1000",
+            "noSSEHeader": false,
+            "scMaxEachPostBytes": 1000000,
+            "scMinPostsIntervalMs": 30,
+            "scMaxConcurrentPosts": 100,
+            "xmux": {
+              "maxConcurrency": "16-32",
+              "maxConnections": 0,
+              "cMaxReuseTimes": 0,
+              "cMaxLifetimeMs": 0
+            },
+            "downloadSettings": {
+              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
+              "address": "",
+              "port": 443,
+              "network": "tcp",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": ""
+              }
+            }
+          }
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -476,7 +548,31 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/ss-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "extra": {
+            "headers": {},
+            "xPaddingBytes": "100-1000",
+            "noSSEHeader": false,
+            "scMaxEachPostBytes": 1000000,
+            "scMinPostsIntervalMs": 30,
+            "scMaxConcurrentPosts": 100,
+            "xmux": {
+              "maxConcurrency": "16-32",
+              "maxConnections": 0,
+              "cMaxReuseTimes": 0,
+              "cMaxLifetimeMs": 0
+            },
+            "downloadSettings": {
+              "_comment": "Browser-dialer / split download path. Point address at a CDN-fronted host if you want download traffic to ride a separate (browser-shaped) connection than upload. Leave address empty to disable and use the single xhttp connection for both directions.",
+              "address": "",
+              "port": 443,
+              "network": "tcp",
+              "security": "tls",
+              "tlsSettings": {
+                "serverName": ""
+              }
+            }
+          }
         },
         "sockopt": {
           "tcpFastOpen": true,
@@ -523,6 +619,157 @@
           "tls"
         ]
       }
+    },
+    {
+      "port": 20000,
+      "listen": "0.0.0.0",
+      "protocol": "trojan",
+      "tag": "trojan-kcp",
+      "settings": {
+        "clients": [
+          {
+            "password": "saeka"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "kcp",
+        "kcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
+          "mtu": 1350,
+          "tti": 50,
+          "uplinkCapacity": 100,
+          "downlinkCapacity": 100,
+          "congestion": false,
+          "readBufferSize": 2,
+          "writeBufferSize": 2,
+          "header": {
+            "type": "wechat-video"
+          },
+          "seed": "saeka-kcp-seed-change-me"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
+    },
+    {
+      "port": 20001,
+      "listen": "0.0.0.0",
+      "protocol": "vmess",
+      "tag": "vmess-kcp",
+      "settings": {
+        "clients": [
+          {
+            "id": "saeka",
+            "alterId": 0
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "kcp",
+        "kcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
+          "mtu": 1350,
+          "tti": 50,
+          "uplinkCapacity": 100,
+          "downlinkCapacity": 100,
+          "congestion": false,
+          "readBufferSize": 2,
+          "writeBufferSize": 2,
+          "header": {
+            "type": "wechat-video"
+          },
+          "seed": "saeka-kcp-seed-change-me"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
+    },
+    {
+      "port": 20002,
+      "listen": "0.0.0.0",
+      "protocol": "vless",
+      "tag": "vless-kcp",
+      "settings": {
+        "clients": [
+          {
+            "id": "saeka"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "kcp",
+        "kcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
+          "mtu": 1350,
+          "tti": 50,
+          "uplinkCapacity": 100,
+          "downlinkCapacity": 100,
+          "congestion": false,
+          "readBufferSize": 2,
+          "writeBufferSize": 2,
+          "header": {
+            "type": "wechat-video"
+          },
+          "seed": "saeka-kcp-seed-change-me"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
+    },
+    {
+      "port": 20003,
+      "listen": "0.0.0.0",
+      "protocol": "shadowsocks",
+      "tag": "ss-kcp",
+      "settings": {
+        "clients": [
+          {
+            "password": "saeka",
+            "method": "aes-256-gcm"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "kcp",
+        "kcpSettings": {
+          "_comment": "listen 0.0.0.0 on purpose: KCP is UDP and is never routed through the HTTP reverse proxy layer (Envoy/HAProxy/Caddy/Traefik) - it needs a direct UDP path to the internet. entrypoint.sh disables this block entirely unless KCP_ENABLED=true, and rewrites port/header/seed from KCP_PORT_BASE/KCP_MASK/KCP_SEED.",
+          "mtu": 1350,
+          "tti": 50,
+          "uplinkCapacity": 100,
+          "downlinkCapacity": 100,
+          "congestion": false,
+          "readBufferSize": 2,
+          "writeBufferSize": 2,
+          "header": {
+            "type": "wechat-video"
+          },
+          "seed": "saeka-kcp-seed-change-me"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ]
+      }
     }
   ],
   "outbounds": [
@@ -556,7 +803,11 @@
           "ss-ws",
           "ss-hu",
           "ss-xh",
-          "ss-grpc"
+          "ss-grpc",
+          "trojan-kcp",
+          "vmess-kcp",
+          "vless-kcp",
+          "ss-kcp"
         ],
         "outboundTag": "direct"
       }

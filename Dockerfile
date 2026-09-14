@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     curl wget unzip ca-certificates gnupg lsb-release haproxy \
     debian-keyring debian-archive-keyring apt-transport-https \
     cmake build-essential git ninja-build pkg-config \
-    libssl-dev zlib1g-dev libuv1-dev \
+    libssl-dev zlib1g-dev libuv1-dev jq openssl \
     && curl -fsSL https://openresty.org/package/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/openresty.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/openresty.gpg] http://openresty.org/package/ubuntu $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/openresty.list \
     && curl -fsSL https://apt.envoyproxy.io/signing.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/envoy.gpg \

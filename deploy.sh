@@ -90,6 +90,42 @@ read -r -p "$(echo -e "  ${CYAN}SERVICE NAME [saeka]: ${RESET}")" INPUT_NAME
 SERVICE_NAME=${INPUT_NAME:-saeka}
 
 echo ""
+echo -e "  ${CYAN}==================================================${NC}"
+echo -e "  ${GREEN}                 DEPLOY TARGET${NC}"
+echo -e "  ${CYAN}==================================================${NC}"
+echo -e "  ${YELLOW}1) Cloud Run  - TCP only. mKCP CANNOT work here - Cloud Run drops${RESET}"
+echo -e "  ${YELLOW}                all UDP unconditionally, no exception, no config fixes it.${RESET}"
+echo -e "  ${YELLOW}2) GCE VM     - TCP+UDP via a firewall rule. mKCP works.${RESET}"
+echo -e "  ${YELLOW}3) GKE        - TCP+UDP via a LoadBalancer Service. mKCP works.${RESET}"
+read -r -p "$(echo -e "  ${CYAN}CHOICE [1-3] (Default 1): ${RESET}")" TARGET_CHOICE
+case "$TARGET_CHOICE" in
+    2) DEPLOY_TARGET="gce";;
+    3) DEPLOY_TARGET="gke";;
+    *) DEPLOY_TARGET="cloudrun";;
+esac
+echo -e "  ${GREEN}DEPLOY TARGET: ${DEPLOY_TARGET}${RESET}"
+
+if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
+    KCP_ENABLED="false"
+    echo -e "  ${YELLOW}mKCP forced off for this target.${RESET}"
+else
+    echo ""
+    read -r -p "$(echo -e "  ${CYAN}ENABLE mKCP? [y/N]: ${RESET}")" KCP_YN
+    if [[ "$KCP_YN" =~ ^[Yy]$ ]]; then
+        KCP_ENABLED="true"
+        echo -e "  ${YELLOW}KCP header/mask type: none | srtp | utp | wechat-video | dtls | wireguard${RESET}"
+        read -r -p "$(echo -e "  ${CYAN}MASK [wechat-video]: ${RESET}")" KCP_MASK_IN
+        KCP_MASK=${KCP_MASK_IN:-wechat-video}
+        read -r -p "$(echo -e "  ${CYAN}UDP PORT BASE (uses base..base+3) [20000]: ${RESET}")" KCP_PORT_BASE_IN
+        KCP_PORT_BASE=${KCP_PORT_BASE_IN:-20000}
+        KCP_SEED=$(openssl rand -hex 12)
+        echo -e "  ${GREEN}KCP seed (save this - clients need it): ${KCP_SEED}${RESET}"
+    else
+        KCP_ENABLED="false"
+    fi
+fi
+
+echo ""
 echo -e "  ${CYAN}SELECT MODE:${RESET}"
 echo -e "  ${YELLOW}1) BROWSING     (1 vCPU / 2Gi  RAM)${RESET}"
 echo -e "  ${YELLOW}2) STREAMING    (2 vCPU / 4Gi  RAM)${RESET}"
@@ -119,6 +155,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Common env vars for all three targets
+COMMON_ENV="PROXY_ENGINE=${PROXY_ENV},ADS_MODE=${ADS_MODE},KCP_ENABLED=${KCP_ENABLED}"
+if [ "$KCP_ENABLED" == "true" ]; then
+    COMMON_ENV="${COMMON_ENV},KCP_MASK=${KCP_MASK},KCP_SEED=${KCP_SEED},KCP_PORT_BASE=${KCP_PORT_BASE}"
+fi
+
+if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
+
 # Quota-safe deploy: try the chosen tier, step down automatically rather
 # than failing outright on restrictive (e.g. Qwiklabs) quotas.
 deploy_attempt() {
@@ -129,7 +173,7 @@ deploy_attempt() {
         --cpu "$cpu" --memory "$mem" --port 8080 \
         --max-instances "$maxi" \
         --timeout 3600 --allow-unauthenticated --project="$PROJECT_ID" \
-        --set-env-vars "PROXY_ENGINE=${PROXY_ENV},ADS_MODE=${ADS_MODE}" \
+        --set-env-vars "$COMMON_ENV" \
         --quiet $extra > deploy.log 2>&1
 }
 
@@ -148,15 +192,134 @@ fi
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project="$PROJECT_ID" --format='value(status.url)' 2>/dev/null)
 CLEAN_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
+KCP_HOST=""
+
+elif [ "$DEPLOY_TARGET" == "gce" ]; then
+
+    read -r -p "$(echo -e "  ${CYAN}ZONE [${REGION}-a]: ${RESET}")" ZONE_IN
+    ZONE=${ZONE_IN:-${REGION}-a}
+
+    loading "OPENING FIREWALL (tcp:8080${KCP_ENABLED:+, udp:$KCP_PORT_BASE-$((KCP_PORT_BASE+3))})"
+    FW_PORTS="tcp:8080"
+    if [ "$KCP_ENABLED" == "true" ]; then
+        FW_PORTS="${FW_PORTS},udp:${KCP_PORT_BASE}-$((KCP_PORT_BASE+3))"
+    fi
+    gcloud compute firewall-rules create "${SERVICE_NAME}-fw" \
+        --allow="$FW_PORTS" --target-tags="${SERVICE_NAME}" \
+        --project="$PROJECT_ID" --quiet 2>>deploy.log || true
+
+    loading "CREATING GCE VM IN ${ZONE}"
+    gcloud compute instances create-with-container "${SERVICE_NAME}" \
+        --zone="$ZONE" --tags="${SERVICE_NAME}" \
+        --container-image="gcr.io/${PROJECT_ID}/${SERVICE_NAME}" \
+        --container-env="$COMMON_ENV" \
+        --machine-type=e2-standard-2 \
+        --project="$PROJECT_ID" --quiet > deploy.log 2>&1
+    if [ $? -ne 0 ]; then
+        echo -e "  ${RED}DEPLOYMENT FAILED. CHECK LOGS BELOW:${RESET}"
+        tail -n 20 deploy.log
+        exit 1
+    fi
+    DEPLOY_NOTE="GCE VM (e2-standard-2), TLS not terminated - put a Caddy/Traefik cert or an HTTPS LB in front if you need TLS"
+    CLEAN_HOST=$(gcloud compute instances describe "${SERVICE_NAME}" --zone="$ZONE" --project="$PROJECT_ID" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+    KCP_HOST="$CLEAN_HOST"
+
+elif [ "$DEPLOY_TARGET" == "gke" ]; then
+
+    read -r -p "$(echo -e "  ${CYAN}GKE CLUSTER NAME: ${RESET}")" CLUSTER_NAME
+    read -r -p "$(echo -e "  ${CYAN}ZONE/REGION of cluster [${REGION}]: ${RESET}")" GKE_LOC_IN
+    GKE_LOC=${GKE_LOC_IN:-$REGION}
+
+    loading "FETCHING CLUSTER CREDENTIALS"
+    gcloud container clusters get-credentials "$CLUSTER_NAME" --region "$GKE_LOC" --project "$PROJECT_ID" --quiet >> deploy.log 2>&1 \
+        || gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$GKE_LOC" --project "$PROJECT_ID" --quiet >> deploy.log 2>&1
+
+    K8S_MANIFEST="/tmp/${SERVICE_NAME}-k8s.yaml"
+    KCP_PORT_LINES=""
+    if [ "$KCP_ENABLED" == "true" ]; then
+        for i in 0 1 2 3; do
+            p=$((KCP_PORT_BASE + i))
+            KCP_PORT_LINES="${KCP_PORT_LINES}
+    - name: kcp-${p}
+      port: ${p}
+      targetPort: ${p}
+      protocol: UDP"
+        done
+    fi
+
+    cat > "$K8S_MANIFEST" << YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${SERVICE_NAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ${SERVICE_NAME} }
+  template:
+    metadata:
+      labels: { app: ${SERVICE_NAME} }
+    spec:
+      containers:
+      - name: ${SERVICE_NAME}
+        image: gcr.io/${PROJECT_ID}/${SERVICE_NAME}
+        ports:
+        - containerPort: 8080
+$(if [ "$KCP_ENABLED" == "true" ]; then for i in 0 1 2 3; do echo "        - containerPort: $((KCP_PORT_BASE + i))
+          protocol: UDP"; done; fi)
+        env:
+$(echo "$COMMON_ENV" | tr ',' '\n' | sed -E 's/^([^=]+)=(.*)$/        - name: \1\n          value: "\2"/')
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+spec:
+  type: LoadBalancer
+  selector: { app: ${SERVICE_NAME} }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP${KCP_PORT_LINES}
+YAML
+
+    loading "APPLYING K8S MANIFEST"
+    kubectl apply -f "$K8S_MANIFEST" >> deploy.log 2>&1
+    if [ $? -ne 0 ]; then
+        echo -e "  ${RED}DEPLOYMENT FAILED. CHECK LOGS BELOW:${RESET}"
+        tail -n 20 deploy.log
+        exit 1
+    fi
+    loading "WAITING FOR LOADBALANCER IP (can take a couple minutes)"
+    for i in $(seq 1 30); do
+        CLEAN_HOST=$(kubectl get svc "$SERVICE_NAME" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+        [ -n "$CLEAN_HOST" ] && break
+        sleep 10
+    done
+    DEPLOY_NOTE="GKE LoadBalancer Service, TLS not terminated - front with a GKE Ingress + managed cert if you need TLS"
+    KCP_HOST="$CLEAN_HOST"
+fi
 
 echo ""
 echo -e "  ${GREEN} (⁠ ⁠ꈍ⁠ᴗ⁠ꈍ⁠) DEPLOYED SUCCESSFULLY WITH ${ENGINE}${RESET}"
 echo ""
-echo -e "  ${CYAN}RAW HOST   ${GREEN}https://${CLEAN_HOST}${RESET}"
-echo -e "  ${CYAN}TIER       ${GREEN}${DEPLOY_NOTE}${RESET}"
+if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
+    echo -e "  ${CYAN}RAW HOST   ${GREEN}https://${CLEAN_HOST}${RESET}"
+else
+    echo -e "  ${CYAN}RAW HOST   ${GREEN}${CLEAN_HOST}${RESET} (no managed TLS - see note below)"
+fi
+echo -e "  ${CYAN}TARGET     ${GREEN}${DEPLOY_TARGET}${RESET}"
+echo -e "  ${CYAN}TIER/NOTE  ${GREEN}${DEPLOY_NOTE}${RESET}"
 echo -e "  ${CYAN}ENGINE     ${GREEN}${ENGINE}${RESET}"
 echo -e "  ${CYAN}ADS MODE   ${GREEN}${ADS_MODE}${RESET}"
-echo -e "  ${CYAN}CPU / RAM  ${GREEN}${CPU} vCPU / ${RAM}${RESET}"
+if [ "$DEPLOY_TARGET" == "cloudrun" ]; then
+    echo -e "  ${CYAN}CPU / RAM  ${GREEN}${CPU} vCPU / ${RAM}${RESET}"
+fi
+if [ "$KCP_ENABLED" == "true" ]; then
+    echo -e "  ${CYAN}mKCP       ${GREEN}enabled, mask=${KCP_MASK}, host=${KCP_HOST}, ports ${KCP_PORT_BASE}-$((KCP_PORT_BASE+3))/udp, seed=${KCP_SEED}${RESET}"
+    echo -e "  ${CYAN}mKCP tags  ${GREEN}trojan-kcp vmess-kcp vless-kcp ss-kcp (matched to port base + index 0-3)${RESET}"
+fi
 echo ""
 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo -e "  ${CYAN}                    PATHS & PROTOCOLS${RESET}"
@@ -168,6 +331,11 @@ echo -e "  ${GREEN}  Shadowsocks${RESET}  | WS: /ss-saeka      | HU: /ss-saeka-h
 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 if [ "$PROXY_ENV" == "openresty" ] || [ "$PROXY_ENV" == "haproxy" ]; then
     echo -e "  ${YELLOW}gRPC paths above will return 501 on ${ENGINE} - see engine note.${RESET}"
+fi
+if [ "$KCP_ENABLED" == "true" ]; then
+    echo -e "  ${YELLOW}mKCP has no path - it's a raw UDP listener, separate from the routes${RESET}"
+    echo -e "  ${YELLOW}above. Point mKCP clients at ${KCP_HOST}:<port> directly, not through${RESET}"
+    echo -e "  ${YELLOW}${ENGINE} or the raw host URL.${RESET}"
 fi
 echo ""
 

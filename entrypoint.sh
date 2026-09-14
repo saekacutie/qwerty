@@ -14,6 +14,48 @@ else
 fi
 echo "[+] Ads mode: ${ADS_MODE}"
 
+# --- mKCP: UDP transport, never routed through the HTTP proxy engines in
+# this image (Envoy/HAProxy/Caddy/Traefik all route by HTTP path, and KCP
+# has no path - it needs its own direct UDP listener). Off by default
+# because Cloud Run drops all UDP unconditionally; turning this on there
+# just means Xray binds ports nothing can ever reach, quietly. Only set
+# KCP_ENABLED=true when the container is actually reachable over UDP
+# (GCE VM with a UDP firewall rule, or a GKE LoadBalancer Service that
+# exposes UDP ports) - see deploy.sh, which sets these for you.
+KCP_ENABLED="${KCP_ENABLED:-false}"
+if [ "$KCP_ENABLED" == "true" ]; then
+    KCP_MASK="${KCP_MASK:-wechat-video}"
+    case "$KCP_MASK" in
+        none|srtp|utp|wechat-video|dtls|wireguard) ;;
+        *)
+            echo "[-] Unknown KCP_MASK '$KCP_MASK', falling back to wechat-video"
+            KCP_MASK="wechat-video"
+            ;;
+    esac
+    KCP_SEED="${KCP_SEED:-$(openssl rand -hex 12)}"
+    KCP_PORT_BASE="${KCP_PORT_BASE:-20000}"
+    echo "[+] mKCP enabled: mask=${KCP_MASK} ports=${KCP_PORT_BASE}-$((KCP_PORT_BASE+3)) seed=${KCP_SEED}"
+    TMP_CFG=$(mktemp)
+    jq --arg mask "$KCP_MASK" --arg seed "$KCP_SEED" --argjson base "$KCP_PORT_BASE" '
+      .inbounds |= map(
+        if (.streamSettings.network? == "kcp") then
+          .streamSettings.kcpSettings.header.type = $mask
+          | .streamSettings.kcpSettings.seed = $seed
+          | .port = ($base + (["trojan-kcp","vmess-kcp","vless-kcp","ss-kcp"] | index(.tag)))
+        else . end
+      )
+    ' /etc/xray/config.json > "$TMP_CFG" && mv "$TMP_CFG" /etc/xray/config.json
+else
+    TMP_CFG=$(mktemp)
+    jq '.inbounds |= map(select(.streamSettings.network? != "kcp"))
+        | .routing.rules |= map(
+            if .outboundTag == "direct" and (.inboundTag? != null) then
+              .inboundTag |= map(select(. != "trojan-kcp" and . != "vmess-kcp" and . != "vless-kcp" and . != "ss-kcp"))
+            else . end
+          )' /etc/xray/config.json > "$TMP_CFG" && mv "$TMP_CFG" /etc/xray/config.json
+    echo "[+] mKCP disabled (KCP_ENABLED=false) - kcp inbounds stripped from config"
+fi
+
 echo "[+] Starting Xray Core..."
 xray run -config /etc/xray/config.json &
 XRAY_PID=$!
