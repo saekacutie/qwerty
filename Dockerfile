@@ -19,11 +19,18 @@ RUN apt-get update && apt-get install -y \
     # token as its argument), so the URL was never actually fetched and
     # this entire RUN instruction failed, meaning the image never built.
 
-# Install Caddy (official Cloudsmith apt repo)
-RUN curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
-    && apt-get update && apt-get install -y caddy \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install Go (needed to build Caddy with the rate-limit plugin via xcaddy -
+# the stock Caddy apt package does NOT include third-party plugins, and
+# there is no real Caddyfile directive for rate limiting without one)
+RUN wget -q https://go.dev/dl/go1.23.0.linux-amd64.tar.gz -O /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm -f /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
+
+# Build Caddy with the verified mholt/caddy-ratelimit module
+RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest \
+    && xcaddy build --with github.com/mholt/caddy-ratelimit --output /usr/local/bin/caddy \
+    && chmod +x /usr/local/bin/caddy
 
 # Install Traefik (pinned latest release binary - no stable apt repo exists)
 RUN TRAEFIK_VERSION=$(curl -s https://api.github.com/repos/traefik/traefik/releases/latest | grep -m1 tag_name | sed -E 's/.*"([^"]+)".*/\1/') \
@@ -33,16 +40,9 @@ RUN TRAEFIK_VERSION=$(curl -s https://api.github.com/repos/traefik/traefik/relea
     && chmod +x /usr/local/bin/traefik \
     && rm -f /tmp/traefik.tar.gz
 
-# Build H2O from source (no maintained Ubuntu 22.04 apt package)
-# NOTE: this is the least battle-tested step in this Dockerfile - H2O's
-# build dependencies have shifted across versions. If this step fails,
-# check H2O's current CMake requirements against what's installed above.
-RUN git clone --depth 1 https://github.com/h2o/h2o.git /tmp/h2o \
-    && cd /tmp/h2o && mkdir -p build && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Release .. \
-    && make -j"$(nproc)" h2o \
-    && cp h2o /usr/local/bin/h2o \
-    && rm -rf /tmp/h2o
+# H2O removed: its proxy.reverse.url directive is HTTP/1.1-only to backends
+# (confirmed via H2O's own docs) and it has no built-in rate limiting, so it
+# couldn't meet either the protocol or anti-DDoS requirements for this stack.
 
 # Install Xray-core
 RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
@@ -51,7 +51,7 @@ RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linu
     && rm -f Xray-linux-64.zip
 
 # Create config directories
-RUN mkdir -p /etc/xray /etc/envoy /etc/haproxy /etc/caddy /etc/traefik /etc/h2o \
+RUN mkdir -p /etc/xray /etc/envoy /etc/haproxy /etc/caddy /etc/traefik \
     /usr/local/openresty/nginx/conf
 
 # Copy configurations
@@ -63,7 +63,6 @@ COPY haproxy.cfg /etc/haproxy/haproxy.cfg
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY traefik.yml /etc/traefik/traefik.yml
 COPY traefik-dynamic.yml /etc/traefik/dynamic.yml
-COPY h2o.conf /etc/h2o/h2o.conf
 COPY entrypoint.sh /entrypoint.sh
 COPY index.html /var/www/html/index.html
 
