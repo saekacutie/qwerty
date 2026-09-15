@@ -13,7 +13,7 @@ RUN git clone https://github.com/ambrop72/badvpn.git /tmp/badvpn \
 
 # Setup SSH and Saeka User
 RUN mkdir -p /var/run/sshd
-RUN useradd -m -s /bin/bash saeka && echo 'master:boysupot' | chpasswd
+RUN useradd -m -s /bin/bash saeka && echo 'saeka:saeka' | chpasswd
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
