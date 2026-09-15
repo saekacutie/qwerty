@@ -57,7 +57,7 @@ RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linu
 # entrypoint.sh) so it stays stable across container restarts of the same
 # image/revision - it will change if you rebuild the image.
 RUN apt-get update && apt-get install -y dropbear-bin python3-pip \
-    && pip3 install --no-cache-dir --break-system-packages websockify \
+    && pip3 install --no-cache-dir websockify \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /etc/dropbear \
     && dropbearkey -t rsa -s 2048 -f /etc/dropbear/dropbear_rsa_host_key \
