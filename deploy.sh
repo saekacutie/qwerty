@@ -191,6 +191,8 @@ echo -e "  ${GREEN}  VLESS${RESET}        | WS: /vless-saeka   | HU: /vless-saek
 echo -e "  ${GREEN}  VMess${RESET}        | WS: /vmess-saeka   | HU: /vmess-saeka-hu   | XH: /vmess-saeka-xh   | gRPC: /vmess-saeka-grpc"
 echo -e "  ${GREEN}  TROJAN${RESET}       | WS: /saeka-tojirp  | HU: /saeka-tojirp-hu  | XH: /saeka-tojirp-xh  | gRPC: /saeka-tojirp-grpc"
 echo -e "  ${GREEN}  Shadowsocks${RESET}  | WS: /ss-saeka      | HU: /ss-saeka-hu      | XH: /ss-saeka-xh      | gRPC: /ss-saeka-grpc"
+echo -e "  ${GREEN}  SSH${RESET}          | WS: /saeka         (user: saeka / pass: saeka - same shared demo cred as the rest)"
+echo -e "  ${GREEN}  UDPGW${RESET}        | 127.0.0.1:7300 once inside the SSH tunnel - set this in your client's UDPGW field"
 echo -e "  ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 if [ "$PROXY_ENV" == "openresty" ]; then
     echo -e "  ${YELLOW}gRPC paths above will return 501 on OpenResty - see engine note.${RESET}"

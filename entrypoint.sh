@@ -18,6 +18,18 @@ echo "[+] Starting Xray Core..."
 xray run -config /etc/xray/config.json &
 XRAY_PID=$!
 
+echo "[+] Starting SSH (dropbear, localhost-only) + WS bridge..."
+dropbear -F -E -p 127.0.0.1:2222 \
+    -r /etc/dropbear/dropbear_rsa_host_key \
+    -r /etc/dropbear/dropbear_ecdsa_host_key &
+SSH_PID=$!
+websockify --web=/dev/null 127.0.0.1:10016 127.0.0.1:2222 &
+SSH_WS_PID=$!
+
+echo "[+] Starting udpgw (UDP relay for SSH tunnel clients)..."
+badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 1000 --max-connections-for-client 10 &
+UDPGW_PID=$!
+
 ENGINE="${PROXY_ENGINE:-haproxy}"
 echo "[+] Starting Reverse Proxy Engine: $ENGINE"
 
@@ -52,7 +64,7 @@ start_engine() {
 
 start_engine
 
-trap 'echo "[+] Shutting down..."; kill "$XRAY_PID" "$ENGINE_PID" 2>/dev/null; exit 0' TERM INT
+trap 'echo "[+] Shutting down..."; kill "$XRAY_PID" "$ENGINE_PID" "$SSH_PID" "$SSH_WS_PID" "$UDPGW_PID" 2>/dev/null; exit 0' TERM INT
 
 # Watchdog: restart Xray or the chosen engine if either crashes, instead of
 # the container silently running half-broken until the whole thing is
@@ -67,5 +79,22 @@ while true; do
     if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
         echo "[watchdog] $ENGINE died, restarting..."
         start_engine
+    fi
+    if ! kill -0 "$SSH_PID" 2>/dev/null; then
+        echo "[watchdog] dropbear died, restarting..."
+        dropbear -F -E -p 127.0.0.1:2222 \
+            -r /etc/dropbear/dropbear_rsa_host_key \
+            -r /etc/dropbear/dropbear_ecdsa_host_key &
+        SSH_PID=$!
+    fi
+    if ! kill -0 "$SSH_WS_PID" 2>/dev/null; then
+        echo "[watchdog] SSH websocket bridge died, restarting..."
+        websockify --web=/dev/null 127.0.0.1:10016 127.0.0.1:2222 &
+        SSH_WS_PID=$!
+    fi
+    if ! kill -0 "$UDPGW_PID" 2>/dev/null; then
+        echo "[watchdog] udpgw died, restarting..."
+        badvpn-udpgw --listen-addr 127.0.0.1:7300 --max-clients 1000 --max-connections-for-client 10 &
+        UDPGW_PID=$!
     fi
 done

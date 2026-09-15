@@ -85,6 +85,14 @@
         reverse_proxy 127.0.0.1:10009
     }
 
+    # --- SSH (over WebSocket, via dropbear + websockify) ---
+    # NOTE: /saeka is a literal prefix of /saeka-tojirp (trojan) above, and
+    # Caddy's handle blocks match top-to-bottom, first hit wins - this MUST
+    # stay below every /saeka-tojirp* block or it would steal trojan traffic.
+    handle /saeka* {
+        reverse_proxy 127.0.0.1:10016
+    }
+
     handle {
         root * /var/www/html
         file_server

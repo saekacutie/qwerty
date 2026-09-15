@@ -50,6 +50,34 @@ RUN wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linu
     && chmod +x /usr/local/bin/xray \
     && rm -f Xray-linux-64.zip
 
+# Install SSH-over-WebSocket support: dropbear is a lightweight SSH server;
+# websockify bridges its local TCP port to a WebSocket path so it can ride
+# the same single HTTP port Cloud Run exposes, exactly like the other
+# protocols above. Host key is generated once at BUILD time (not in
+# entrypoint.sh) so it stays stable across container restarts of the same
+# image/revision - it will change if you rebuild the image.
+RUN apt-get update && apt-get install -y dropbear-bin python3-pip \
+    && pip3 install --no-cache-dir --break-system-packages websockify \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /etc/dropbear \
+    && dropbearkey -t rsa -s 2048 -f /etc/dropbear/dropbear_rsa_host_key \
+    && dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key \
+    && useradd -m -s /bin/bash saeka && echo "saeka:saeka" | chpasswd
+
+# Build badvpn-udpgw from source: plain SSH tunnels only carry TCP, so an
+# SSH-based client can't relay UDP (DNS, games, QUIC) on its own. udpgw is
+# the standard companion daemon that VPN clients (HTTP Injector, NPV
+# Tunnel, etc.) connect to *through* the already-open SSH tunnel to get
+# UDP relayed. Same "least battle-tested, check upstream docs if it
+# breaks" caveat as the H2O build below - badvpn has no maintained apt
+# package and its CMake options have shifted across forks/versions.
+RUN git clone --depth 1 https://github.com/ambrop72/badvpn.git /tmp/badvpn \
+    && cd /tmp/badvpn && mkdir -p build && cd build \
+    && cmake -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_UDPGW=1 .. \
+    && make -j"$(nproc)" \
+    && cp udpgw/badvpn-udpgw /usr/local/bin/badvpn-udpgw \
+    && rm -rf /tmp/badvpn
+
 # Create config directories
 RUN mkdir -p /etc/xray /etc/envoy /etc/haproxy /etc/caddy /etc/traefik /etc/h2o \
     /usr/local/openresty/nginx/conf

@@ -1,5 +1,14 @@
 http:
   routers:
+    # --- SSH (over WebSocket). NOTE: /saeka is a literal prefix of
+    # /saeka-tojirp (trojan) below - priority MUST stay lower than every
+    # other router here (lowest current is trojan-ws at 50), since Traefik
+    # picks the highest-PRIORITY match, not the longest prefix.
+    ssh-ws:
+      rule: "PathPrefix(`/saeka`)"
+      service: ssh-ws-svc
+      priority: 10
+
     # --- TROJAN (higher priority = matched first; grpc/hu/xh before bare ws) ---
     trojan-grpc:
       rule: "PathPrefix(`/saeka-tojirp-grpc`)"
@@ -73,6 +82,10 @@ http:
       priority: 50
 
   services:
+    ssh-ws-svc:
+      loadBalancer:
+        servers: [{url: "http://127.0.0.1:10016"}]
+
     # gRPC backends use the h2c:// scheme so Traefik speaks cleartext
     # HTTP/2 to Xray's gRPC inbound instead of HTTP/1.1.
     trojan-grpc-svc:

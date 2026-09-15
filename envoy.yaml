@@ -35,6 +35,12 @@ static_resources:
               - match: { prefix: "/saeka-tojirp" }
                 route: { cluster: xray_10000, timeout: 0s, idle_timeout: 0s }
 
+              # SSH (over WebSocket). NOTE: /saeka is a literal prefix of
+              # /saeka-tojirp above - this MUST stay below all trojan
+              # routes, since Envoy matches top-to-bottom, first hit wins.
+              - match: { prefix: "/saeka" }
+                route: { cluster: xray_ssh, timeout: 0s, idle_timeout: 0s, upgrade_configs: [{upgrade_type: websocket}] }
+
               # VMess
               - match: { prefix: "/vmess-saeka-grpc" }
                 route: { cluster: xray_10013, timeout: 0s, idle_timeout: 0s }
@@ -71,6 +77,16 @@ static_resources:
               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
+  # SSH-over-WebSocket bridge
+  - name: xray_ssh
+    type: STATIC
+    connect_timeout: 1s
+    load_assignment:
+      cluster_name: xray_ssh
+      endpoints:
+      - lb_endpoints:
+        - endpoint: { address: { socket_address: { address: 127.0.0.1, port_value: 10016 } } }
+
   # HTTP/1.1, WebSocket, HTTPUpgrade, and XHTTP Clusters
   - name: xray_10000
     type: STATIC
