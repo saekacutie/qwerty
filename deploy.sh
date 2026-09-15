@@ -147,9 +147,38 @@ SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --
 CLEAN_HOST=$(echo "$SERVICE_URL" | sed 's|https://||')
 
 echo ""
+echo -e "  ${CYAN}==================================================${NC}"
+echo -e "  ${GREEN}          CUSTOM DOMAIN (OPTIONAL)${NC}"
+echo -e "  ${CYAN}==================================================${NC}"
+echo -e "  ${YELLOW}Cloud Run domain mapping is a beta feature - it is not GA,${RESET}"
+echo -e "  ${YELLOW}some regions see higher latency on mapped domains, and the${RESET}"
+echo -e "  ${YELLOW}domain must already be verified for this GCP account in${RESET}"
+echo -e "  ${YELLOW}Search Console (https://search.google.com/search-console).${RESET}"
+read -r -p "$(echo -e "  ${CYAN}Custom domain to map (blank to skip): ${RESET}")" CUSTOM_DOMAIN
+FINAL_HOST="$CLEAN_HOST"
+if [ -n "$CUSTOM_DOMAIN" ]; then
+    loading "MAPPING ${CUSTOM_DOMAIN}"
+    if gcloud beta run domain-mappings create \
+        --service "$SERVICE_NAME" --domain "$CUSTOM_DOMAIN" \
+        --region "$REGION" --project="$PROJECT_ID" --quiet > domain.log 2>&1; then
+        echo -e "  ${GREEN}Mapping created.${RESET} Add the DNS records gcloud just printed"
+        echo -e "  ${GREEN}(check domain.log) at your DNS provider, then wait for the${RESET}"
+        echo -e "  ${GREEN}managed cert to provision (can take up to ~24h).${RESET}"
+        FINAL_HOST="$CUSTOM_DOMAIN"
+    else
+        echo -e "  ${RED}Domain mapping failed - most likely the domain isn't verified${RESET}"
+        echo -e "  ${RED}yet, or this region doesn't support mappings. Continuing with${RESET}"
+        echo -e "  ${RED}the default *.run.app host instead. See domain.log for details.${RESET}"
+        tail -n 10 domain.log
+    fi
+fi
+echo ""
 echo -e "  ${GREEN} (⁠ ⁠ꈍ⁠ᴗ⁠ꈍ⁠) DEPLOYED SUCCESSFULLY WITH ${ENGINE}${RESET}"
 echo ""
 echo -e "  ${CYAN}RAW HOST   ${GREEN}https://${CLEAN_HOST}${RESET}"
+if [ "$FINAL_HOST" != "$CLEAN_HOST" ]; then
+    echo -e "  ${CYAN}CUSTOM     ${GREEN}https://${FINAL_HOST}${RESET} ${YELLOW}(once DNS + cert are live)${RESET}"
+fi
 echo -e "  ${CYAN}TIER       ${GREEN}${DEPLOY_NOTE}${RESET}"
 echo -e "  ${CYAN}ENGINE     ${GREEN}${ENGINE}${RESET}"
 echo -e "  ${CYAN}ADS MODE   ${GREEN}${ADS_MODE}${RESET}"
@@ -172,7 +201,7 @@ cleanup() {
     if [ "${ALREADY_CLEANED:-0}" -eq 1 ]; then return; fi
     ALREADY_CLEANED=1
     echo -e "\n  ${YELLOW}Cleaning up local build logs...${RESET}"
-    rm -f build.log deploy.log
+    rm -f build.log deploy.log domain.log
     echo -e "  ${GREEN}Deployer session closed.${RESET}\n"
     exit 0
 }
