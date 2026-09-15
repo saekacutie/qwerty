@@ -1,117 +1,71 @@
-FROM ubuntu:22.04
+#!/bin/bash
+set -e
 
-ENV DEBIAN_FRONTEND=noninteractive
+ulimit -n 65535 || true
 
-# ==========================
-# Base packages
-# ==========================
+# --- Ads toggle: ADS_MODE=ads (normal, ads shown) or noads (ad/tracker
+# domains blackholed via DNS). Defaults to noads to match the original
+# repo's apparent intent. ---
+ADS_MODE="${ADS_MODE:-noads}"
+if [ "$ADS_MODE" == "ads" ]; then
+    cp /etc/xray/config-ads.json /etc/xray/config.json
+else
+    cp /etc/xray/config-noads.json /etc/xray/config.json
+fi
+echo "[+] Ads mode: ${ADS_MODE}"
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    unzip \
-    ca-certificates \
-    gnupg \
-    nginx \
-    openssh-server \
-    python3 \
-    python3-pip \
-    procps \
-    net-tools \
-    supervisor \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
+echo "[+] Starting Xray Core..."
+xray run -config /etc/xray/config.json &
+XRAY_PID=$!
 
+ENGINE="${PROXY_ENGINE:-haproxy}"
+echo "[+] Starting Reverse Proxy Engine: $ENGINE"
 
-# ==========================
-# Install Xray Core
-# ==========================
+start_engine() {
+    case "$ENGINE" in
+        envoy)
+            envoy -c /etc/envoy/envoy.yaml &
+            ;;
+        haproxy)
+            haproxy -f /etc/haproxy/haproxy.cfg -db &
+            ;;
+        openresty)
+            /usr/local/openresty/bin/openresty -g "daemon off;" &
+            ;;
+        caddy)
+            caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
+            ;;
+        traefik)
+            traefik --configFile=/etc/traefik/traefik.yml &
+            ;;
+        h2o)
+            h2o -c /etc/h2o/h2o.conf &
+            ;;
+        *)
+            echo "[-] Unknown PROXY_ENGINE '$ENGINE', falling back to haproxy"
+            ENGINE="haproxy"
+            haproxy -f /etc/haproxy/haproxy.cfg -db &
+            ;;
+    esac
+    ENGINE_PID=$!
+}
 
-RUN mkdir -p /usr/local/bin/xray && \
-    curl -L \
-    https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
-    -o /tmp/xray.zip && \
-    unzip /tmp/xray.zip -d /tmp/xray && \
-    mv /tmp/xray/xray /usr/local/bin/xray && \
-    chmod +x /usr/local/bin/xray && \
-    rm -rf /tmp/xray /tmp/xray.zip
+start_engine
 
+trap 'echo "[+] Shutting down..."; kill "$XRAY_PID" "$ENGINE_PID" 2>/dev/null; exit 0' TERM INT
 
-# ==========================
-# Install Envoy Proxy
-# ==========================
-
-RUN curl -sL 'https://getenvoy.io/gpg' \
-    | gpg --dearmor \
-    -o /usr/share/keyrings/getenvoy.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/getenvoy.gpg] https://deb.getenvoy.io/public stable main" \
-    > /etc/apt/sources.list.d/getenvoy.list && \
-    apt-get update && \
-    apt-get install -y getenvoy-envoy && \
-    ln -sf /usr/bin/envoy /usr/local/bin/envoy && \
-    rm -rf /var/lib/apt/lists/*
-
-
-# ==========================
-# Optional proxy packages
-# ==========================
-
-RUN apt-get update && apt-get install -y \
-    haproxy \
-    && rm -rf /var/lib/apt/lists/*
-
-
-# ==========================
-# SSH configuration
-# ==========================
-
-RUN mkdir -p /run/sshd
-
-RUN echo "saeka:saeka" | chpasswd
-
-RUN sed -i \
-    's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' \
-    /etc/ssh/sshd_config
-
-
-# ==========================
-# Application files
-# ==========================
-
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-
-COPY nginx.conf /etc/nginx/nginx.conf
-
-
-# Xray configs
-RUN mkdir -p /etc/xray
-
-COPY xray/ /etc/xray/
-
-
-# Proxy configs
-
-RUN mkdir -p /etc/envoy
-
-COPY envoy.yaml /etc/envoy/envoy.yaml
-
-
-RUN mkdir -p /etc/haproxy
-
-COPY haproxy.cfg /etc/haproxy/haproxy.cfg
-
-
-# ==========================
-# Cloud Run port
-# ==========================
-
-EXPOSE 8080
-
-
-# ==========================
-# Start
-# ==========================
-
-CMD ["/entrypoint.sh"]
+# Watchdog: restart Xray or the chosen engine if either crashes, instead of
+# the container silently running half-broken until the whole thing is
+# redeployed.
+while true; do
+    sleep 10
+    if ! kill -0 "$XRAY_PID" 2>/dev/null; then
+        echo "[watchdog] xray died, restarting..."
+        xray run -config /etc/xray/config.json &
+        XRAY_PID=$!
+    fi
+    if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
+        echo "[watchdog] $ENGINE died, restarting..."
+        start_engine
+    fi
+done
