@@ -109,6 +109,58 @@ echo ""
 echo "[+] Authoritative client outbound (pinning + ECH guaranteed): ${JSON_FILE}"
 [ -z "$CERT_SHA256_B64" ] && echo "[!] pinnedPeerCertificateChainSha256 is empty - fill it in once you have a live cert to probe, or the client will just skip pinning."
 
+# --- Fragment: splits the outgoing TLS ClientHello into small pieces on
+# the wire so DPI middleboxes that match on the whole ClientHello in one
+# packet don't recognize it. This is entirely a CLIENT-side dial-time
+# behavior (Xray's freedom outbound "fragment" setting) - the server
+# never sees or configures this, so it's opt-in per client, not something
+# deploy.sh can turn on for everyone at once.
+if [ "${FRAGMENT:-0}" == "1" ]; then
+    FRAG_FILE="./client-links/${HOST}-fragment-outbound.json"
+    cat > "$FRAG_FILE" << EOF
+{
+  "_comment": "Same as ${JSON_FILE} but dials through a fragment outbound first. Client-only setting - tune length/interval if your network's DPI still catches it.",
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [{
+          "address": "${HOST}",
+          "port": ${PORT},
+          "users": [{"id": "${USERID}", "encryption": "none"}]
+        }]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "wsSettings": {"path": "/vless-saeka", "host": "${HOST}"},
+        "tlsSettings": {
+          "serverName": "${HOST}",
+          "fingerprint": "${FP}",
+          $( [ -n "$ECH_B64" ] && echo "\"echConfigList\": \"${ECH_B64}\"," )
+          "pinnedPeerCertificateChainSha256": [$( [ -n "$CERT_SHA256_B64" ] && echo "\"${CERT_SHA256_B64}\"" )]
+        },
+        "sockopt": {"dialerProxy": "fragment-helper"}
+      }
+    },
+    {
+      "tag": "fragment-helper",
+      "protocol": "freedom",
+      "settings": {
+        "fragment": {
+          "packets": "tlshello",
+          "length": "10-100",
+          "interval": "10-20"
+        }
+      }
+    }
+  ]
+}
+EOF
+    echo "[+] Fragment-enabled anti-DPI client outbound: ${FRAG_FILE}"
+fi
+
 # --- Raw-TCP masked transport: not in the share links above (no TLS, no
 # path - it's a direct listener, only reachable on GCE/GKE, never Cloud
 # Run). Add it to the client manually with these fields.
