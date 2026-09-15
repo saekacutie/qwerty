@@ -1,13 +1,10 @@
 http:
   routers:
-    # --- SSH (over WebSocket). NOTE: /saeka is a literal prefix of
-    # /saeka-tojirp (trojan) below - priority MUST stay lower than every
-    # other router here (lowest current is trojan-ws at 50), since Traefik
-    # picks the highest-PRIORITY match, not the longest prefix.
+    # --- SSH (dropbear via websockify bridge on 127.0.0.1:10016) ---
     ssh-ws:
-      rule: "PathPrefix(`/saeka`)"
+      rule: "PathPrefix(`/ssh-saeka`)"
       service: ssh-ws-svc
-      priority: 10
+      priority: 50
 
     # --- TROJAN (higher priority = matched first; grpc/hu/xh before bare ws) ---
     trojan-grpc:
@@ -82,6 +79,8 @@ http:
       priority: 50
 
   services:
+    # SSH-over-WS bridge (dropbear listens on 127.0.0.1:2222; websockify
+    # exposes it as a plain WS-speaking TCP service on 127.0.0.1:10016)
     ssh-ws-svc:
       loadBalancer:
         servers: [{url: "http://127.0.0.1:10016"}]
