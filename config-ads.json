@@ -32,7 +32,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -63,7 +65,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -90,12 +94,19 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/saeka-tojirp-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "noSSEHeader": false,
+          "scMaxEachPostBytes": 1000000,
+          "scMaxBufferedPosts": 30,
+          "scStreamUpServerSecs": "20-80",
+          "xPaddingBytes": "100-1000"
         },
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -126,7 +137,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -158,7 +171,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -190,7 +205,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -218,12 +235,19 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vmess-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "noSSEHeader": false,
+          "scMaxEachPostBytes": 1000000,
+          "scMaxBufferedPosts": 30,
+          "scStreamUpServerSecs": "20-80",
+          "xPaddingBytes": "100-1000"
         },
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -255,7 +279,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -287,7 +313,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -319,7 +347,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -347,12 +377,19 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/vless-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "noSSEHeader": false,
+          "scMaxEachPostBytes": 1000000,
+          "scMaxBufferedPosts": 30,
+          "scStreamUpServerSecs": "20-80",
+          "xPaddingBytes": "100-1000"
         },
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -384,7 +421,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       },
       "sniffing": {
@@ -416,7 +455,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       }
     },
@@ -441,7 +482,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       }
     },
@@ -462,12 +505,19 @@
         "network": "xhttp",
         "xhttpSettings": {
           "path": "/ss-saeka-xh",
-          "mode": "auto"
+          "mode": "auto",
+          "noSSEHeader": false,
+          "scMaxEachPostBytes": 1000000,
+          "scMaxBufferedPosts": 30,
+          "scStreamUpServerSecs": "20-80",
+          "xPaddingBytes": "100-1000"
         },
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       }
     },
@@ -492,7 +542,9 @@
         "sockopt": {
           "tcpFastOpen": true,
           "tcpNoDelay": true,
-          "tcpKeepAliveInterval": 15
+          "tcpKeepAliveInterval": 15,
+          "tcpKeepAliveIdle": 30,
+          "tcpMptcp": false
         }
       }
     }
@@ -508,8 +560,16 @@
     }
   ],
   "routing": {
-    "domainStrategy": "AsIs",
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
+      {
+        "type": "field",
+        "ip": [
+          "geoip:private",
+          "169.254.169.254/32"
+        ],
+        "outboundTag": "block"
+      },
       {
         "type": "field",
         "inboundTag": [
