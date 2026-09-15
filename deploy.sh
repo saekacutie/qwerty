@@ -109,8 +109,7 @@ esac
 
 echo ""
 loading "BUILDING CONTAINER IMAGE ($ENGINE)"
-gcloud builds submit --tag "gcr.io/${PROJECT_ID}/${SERVICE_NAME}" --project="$PROJECT_ID" --quiet > build.log 2>&1
-if [ $? -ne 0 ]; then
+if ! gcloud builds submit --tag "gcr.io/${PROJECT_ID}/${SERVICE_NAME}" --project="$PROJECT_ID" --quiet > build.log 2>&1; then
     echo -e "  ${RED}BUILD FAILED. CHECK LOGS BELOW:${RESET}"
     tail -n 20 build.log
     exit 1
