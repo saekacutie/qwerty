@@ -38,7 +38,7 @@ static_resources:
               # SSH (over WebSocket). NOTE: /saeka is a literal prefix of
               # /saeka-tojirp above - this MUST stay below all trojan
               # routes, since Envoy matches top-to-bottom, first hit wins.
-              - match: { prefix: "/saeka" }
+              - match: { prefix: "/saeka-ssh" }
                 route: { cluster: xray_ssh, timeout: 0s, idle_timeout: 0s, upgrade_configs: [{upgrade_type: websocket}] }
 
               # VMess
