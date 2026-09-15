@@ -89,7 +89,7 @@
     # NOTE: /saeka is a literal prefix of /saeka-tojirp (trojan) above, and
     # Caddy's handle blocks match top-to-bottom, first hit wins - this MUST
     # stay below every /saeka-tojirp* block or it would steal trojan traffic.
-    handle /saeka* {
+    handle /saeka-ssh* {
         reverse_proxy 127.0.0.1:10016
     }
 
