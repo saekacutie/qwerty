@@ -1,208 +1,117 @@
-#!/bin/bash
-set -e
+FROM ubuntu:22.04
 
-ulimit -n 65535 || true
-
-echo "[+] Starting Gateway"
+ENV DEBIAN_FRONTEND=noninteractive
 
 # ==========================
-# START SSH
+# Base packages
 # ==========================
 
-echo "[+] Generating SSH keys"
-ssh-keygen -A
-mkdir -p /run/sshd
-
-echo "[+] Starting SSHD"
-/usr/sbin/sshd
-
-
-# ==========================
-# START UDPGW
-# ==========================
-
-echo "[+] Starting UDP Gateway"
-
-badvpn-udpgw \
- --listen-addr 127.0.0.1:7300 \
- --max-clients 1000 \
- --max-connections-for-client 40 \
- --loglevel warning &
-
-UDPGW_PID=$!
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    unzip \
+    ca-certificates \
+    gnupg \
+    nginx \
+    openssh-server \
+    python3 \
+    python3-pip \
+    procps \
+    net-tools \
+    supervisor \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
 
 
 # ==========================
-# START XRAY
+# Install Xray Core
 # ==========================
 
-echo "[+] Starting Xray"
-
-xray run \
--config /etc/xray/config.json &
-
-XRAY_PID=$!
-
-
-# ==========================
-# PROXY SELECTOR
-# ==========================
-
-ENGINE="${PROXY_ENGINE:-envoy}"
-
-echo "[+] Selected Proxy: $ENGINE"
-
-
-start_proxy(){
-
-case "$ENGINE" in
-
-
-envoy)
-
-echo "[+] Starting Envoy"
-
-envoy \
--c /etc/envoy/envoy.yaml &
-
-PROXY_PID=$!
-
-;;
-
-
-haproxy)
-
-echo "[+] Starting HAProxy"
-
-haproxy \
--f /etc/haproxy/haproxy.cfg \
--db &
-
-PROXY_PID=$!
-
-;;
-
-
-caddy)
-
-echo "[+] Starting Caddy"
-
-caddy run \
---config /etc/caddy/Caddyfile &
-
-PROXY_PID=$!
-
-;;
-
-
-traefik)
-
-echo "[+] Starting Traefik"
-
-traefik \
---configFile=/etc/traefik/traefik.yml &
-
-PROXY_PID=$!
-
-;;
-
-
-h2o)
-
-echo "[+] Starting H2O"
-
-h2o \
--c /etc/h2o/h2o.conf &
-
-PROXY_PID=$!
-
-;;
-
-
-openresty)
-
-echo "[+] Starting OpenResty"
-
-/usr/local/openresty/bin/openresty \
--g "daemon off;" &
-
-PROXY_PID=$!
-
-;;
-
-
-*)
-
-echo "[!] Unknown proxy"
-echo "[!] Falling back to Envoy"
-
-envoy \
--c /etc/envoy/envoy.yaml &
-
-PROXY_PID=$!
-
-;;
-
-esac
-
-}
-
-
-start_proxy
+RUN mkdir -p /usr/local/bin/xray && \
+    curl -L \
+    https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip \
+    -o /tmp/xray.zip && \
+    unzip /tmp/xray.zip -d /tmp/xray && \
+    mv /tmp/xray/xray /usr/local/bin/xray && \
+    chmod +x /usr/local/bin/xray && \
+    rm -rf /tmp/xray /tmp/xray.zip
 
 
 # ==========================
-# WATCHDOG
+# Install Envoy Proxy
 # ==========================
 
-echo "[+] Watchdog active"
+RUN curl -sL 'https://getenvoy.io/gpg' \
+    | gpg --dearmor \
+    -o /usr/share/keyrings/getenvoy.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/getenvoy.gpg] https://deb.getenvoy.io/public stable main" \
+    > /etc/apt/sources.list.d/getenvoy.list && \
+    apt-get update && \
+    apt-get install -y getenvoy-envoy && \
+    ln -sf /usr/bin/envoy /usr/local/bin/envoy && \
+    rm -rf /var/lib/apt/lists/*
 
 
-while true
-do
+# ==========================
+# Optional proxy packages
+# ==========================
 
-sleep 10
-
-
-if ! kill -0 $XRAY_PID 2>/dev/null
-then
-
-echo "[WATCHDOG] Restarting Xray"
-
-xray run \
--config /etc/xray/config.json &
-
-XRAY_PID=$!
-
-fi
+RUN apt-get update && apt-get install -y \
+    haproxy \
+    && rm -rf /var/lib/apt/lists/*
 
 
+# ==========================
+# SSH configuration
+# ==========================
 
-if ! kill -0 $UDPGW_PID 2>/dev/null
-then
+RUN mkdir -p /run/sshd
 
-echo "[WATCHDOG] Restarting UDPGW"
+RUN echo "saeka:saeka" | chpasswd
 
-badvpn-udpgw \
- --listen-addr 127.0.0.1:7300 \
- --max-clients 1000 \
- --max-connections-for-client 40 \
- --loglevel warning &
-
-UDPGW_PID=$!
-
-fi
+RUN sed -i \
+    's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' \
+    /etc/ssh/sshd_config
 
 
+# ==========================
+# Application files
+# ==========================
 
-if ! kill -0 $PROXY_PID 2>/dev/null
-then
-
-echo "[WATCHDOG] Restarting Proxy"
-
-start_proxy
-
-fi
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 
-done
+COPY nginx.conf /etc/nginx/nginx.conf
+
+
+# Xray configs
+RUN mkdir -p /etc/xray
+
+COPY xray/ /etc/xray/
+
+
+# Proxy configs
+
+RUN mkdir -p /etc/envoy
+
+COPY envoy.yaml /etc/envoy/envoy.yaml
+
+
+RUN mkdir -p /etc/haproxy
+
+COPY haproxy.cfg /etc/haproxy/haproxy.cfg
+
+
+# ==========================
+# Cloud Run port
+# ==========================
+
+EXPOSE 8080
+
+
+# ==========================
+# Start
+# ==========================
+
+CMD ["/entrypoint.sh"]
