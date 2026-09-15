@@ -157,3 +157,24 @@ echo -e "  ${CYAN}Press Ctrl+C when you're done to clean up local logs.${RESET}"
 while true; do
     sleep 60
 done
+
+
+echo "SELECT PROXY ENGINE"
+echo "1) Envoy"
+echo "2) HAProxy"
+echo "3) Caddy"
+echo "4) Traefik"
+echo "5) H2O"
+echo "6) OpenResty"
+
+read -r -p "Choice [1-6]: " ENGINE_CHOICE
+
+case "$ENGINE_CHOICE" in
+1) PROXY_ENGINE="envoy" ;;
+2) PROXY_ENGINE="haproxy" ;;
+3) PROXY_ENGINE="caddy" ;;
+4) PROXY_ENGINE="traefik" ;;
+5) PROXY_ENGINE="h2o" ;;
+6) PROXY_ENGINE="openresty" ;;
+*) PROXY_ENGINE="envoy" ;;
+esac
